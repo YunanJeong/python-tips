@@ -42,52 +42,104 @@ brew install uv
 
 ### 1. 신규 프로젝트
 
+#### 1.1. 프로젝트 생성
+
 ```sh
-# 프로젝트 초기화 (pyproject.toml + .python-version + README.md + main.py + .gitignore 생성)
 uv init myproj
 cd myproj
+```
 
-# 의존성 추가 (자동으로 .venv 생성 + uv.lock 갱신)
-uv add requests
-uv add --dev pytest ruff
+`myproj` 디렉토리와 함께 아래 파일들이 생성된다.
 
-# 실행 (가상환경 activate 불필요)
-uv run python hello.py
+```
+myproj/
+├── pyproject.toml     # 프로젝트 설정/의존성 명세 (가장 중요)
+├── .python-version    # 이 프로젝트가 쓸 파이썬 버전
+├── main.py            # 샘플 스크립트
+├── README.md          # 기본 템플릿
+└── .gitignore         # 기본 템플릿
+```
+
+#### 1.2. 의존성 추가
+
+```sh
+# requests/pytest/ruff는 PyPI 패키지명 (예시). uv add 뒤에 설치할 패키지명을 적음
+uv add requests            # 런타임 의존성
+uv add --dev pytest ruff   # 개발용 의존성 (배포시 제외, 운영 환경에 섞이지 않게 분리)
+```
+
+첫 `uv add` 실행 시 자동으로:
+
+- `.venv/` 가상환경 생성
+- 패키지 설치
+- `pyproject.toml`에 의존성 기록
+- `uv.lock` 생성 (정확한 버전/해시가 박혀서 재현성 보장)
+
+#### 1.3. 실행
+
+```sh
+# uv run이 .venv를 알아서 찾아 씀. source .venv/bin/activate 불필요
+uv run python main.py
 uv run pytest
+```
 
-# 의존성 제거
+#### 1.4. 의존성 제거
+
+```sh
+# .venv에서 패키지 제거 + pyproject.toml, uv.lock에서도 해당 항목 빠짐
 uv remove requests
 ```
 
+#### 1.5. 커밋 규칙 (중요) 📌
+
+- 커밋 O:
+  - `pyproject.toml`: 모든 선언적 설정
+  - `uv.lock`: 패키지 확정(pin)
+  - `.python-version`: 파이썬 버전 확정(pin)
+  - 팀원/배포서버가 같은 환경을 재현하려면 필수
+- 커밋 X:
+  -  `.venv/`: 용량 크고 OS 종속적이라 절대 커밋 금지. uv init 시 gitignore에 기본 등록됨.
+
 ### 2. 기존 프로젝트 합류
 
+`pyproject.toml` + `uv.lock`이 있는 저장소를 받았을 때.
+
 ```sh
-# pyproject.toml + uv.lock 있는 저장소를 받은 경우
 git clone <repo> && cd <repo>
-uv sync           # lock파일 기준으로 .venv 복원
-uv run <cmd>      # 바로 실행
+uv sync           # uv.lock에 박힌 버전 그대로 .venv 복원 (로컬/원격이 같은 환경)
+uv run <cmd>      # 실행. <cmd>는 python main.py, pytest 같은 실행할 명령어
 ```
 
 ### 3. 파이썬 버전 관리 (pyenv 대체)
 
+파이썬 자체를 uv가 설치/전환해준다. 시스템 파이썬 건드리지 않음.
+
 ```sh
-uv python install 3.12 3.11    # 여러 버전 설치
-uv python list                  # 설치된 버전 목록
-uv python pin 3.12              # 현재 디렉토리를 3.12로 고정 (.python-version 생성)
+# 숫자는 파이썬 버전. 3.12, 3.11, 3.10.14 같이 적음
+uv python install 3.12 3.11    # 여러 버전 설치 (공백으로 나열)
+uv python list                 # 설치된 버전 목록
+uv python pin 3.12             # 현재 프로젝트를 3.12로 고정 (.python-version에 기록, uv run시 그 버전 사용)
 ```
 
 ### 4. 전역 CLI 툴 (pipx 대체)
 
+`ruff`, `mypy` 같이 프로젝트 의존성이 아니라 커맨드로 쓰고 싶은 도구를 시스템 전역에 깔 때 쓴다. 각 도구별로 독립된 환경에 설치돼서 서로 충돌 안 남.
+
 ```sh
-uv tool install ruff
+uv tool install ruff           # 설치 후 어디서든 `ruff` 로 실행 가능
 uv tool install mypy
-uv tool list
-uv tool upgrade --all
+uv tool list                   # 설치된 도구 목록
+uv tool upgrade --all          # 전체 업그레이드
 ```
+
+프로젝트 내부에서만 쓰고 싶으면 `uv tool install`이 아니라 `uv add --dev`를 쓴다. 둘 차이:
+
+- `uv tool install ruff`: 시스템 어디서든 `ruff` 명령 사용 가능. 프로젝트와 무관
+- `uv add --dev ruff`: 이 프로젝트 한정. `uv run ruff`로 실행
 
 ### 5. 인라인 스크립트 의존성 (PEP 723)
 
-단일 파일 스크립트 상단에 의존성을 박아두면 uv가 임시 가상환경 만들어서 실행.
+프로젝트 만들기도 귀찮은 단발성 스크립트용. 파일 상단 주석에 의존성을 적어두면 uv가 임시 가상환경을 만들어서 돌린다.
 
 ```py
 # /// script
@@ -100,7 +152,9 @@ print(requests.get("https://httpbin.org/ip").json())
 ```
 
 ```sh
-uv run script.py    # 알아서 처리됨
+# # /// script ~ # /// 블록이 PEP 723 표준 포맷
+# dependencies에 쓴 패키지를 uv가 격리된 환경에 설치 후 실행 (pyproject.toml 불필요)
+uv run script.py
 ```
 
 예제는 [`inline_script.py`](./inline_script.py) 참고.
