@@ -1,14 +1,9 @@
 [project]
-name = "uv-example"
+name = "uv"
 version = "0.1.0"
-description = "python-tips 레포의 uv 데모 프로젝트"
-requires-python = ">=3.11"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
 dependencies = [
-    "requests>=2.31",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.0",
-    "ruff>=0.5",
+    "httpx>=0.28.1",
 ]
